@@ -1,0 +1,28 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (binding = 0, rgba8) uniform image2D rasterOutput;
+layout (binding = 1, rgba8) uniform image2D velocityBuffer;
+layout (binding = 2, rgba8) uniform image2D finalOutput;
+
+void main()
+{
+	vec2 velocity = imageLoad(velocityBuffer, ivec2(gl_GlobalInvocationID.xy)).xy;
+
+	int BLUR_SAMPLES = 32;
+	vec4 colorAccumulator = vec4(0,0,0,0);
+	for (int i = 0; i < BLUR_SAMPLES; i++)
+	{
+		float progress = i / float(BLUR_SAMPLES);
+		vec2 newCoordsFloat = gl_GlobalInvocationID.xy + velocity * progress;
+		ivec2 newCoordsInt = ivec2(int(round(newCoordsFloat.x)), int(round(newCoordsFloat.y)));
+
+		vec4 color = imageLoad(rasterOutput, newCoordsInt);
+		color.a = 1;
+
+		colorAccumulator += color * cos(progress * 1.57);
+	}
+
+	imageStore(finalOutput, ivec2(gl_GlobalInvocationID.xy), colorAccumulator / colorAccumulator.a);
+}
